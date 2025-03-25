@@ -15,7 +15,7 @@ import java.util.List;
 
 @Aspect
 @Component
-@ConditionalOnExpression("${sbuf.aspect.logging.component:true}")
+@ConditionalOnExpression("${sbuf.aspect.logging-component.enabled:true}")
 public class LoggingComponentAspect {
 
     @Pointcut("execution(* org.sbuf.main.LoggingComponent+.log*(String, Object...))")

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnExpression("${sbuf.config.tracing.on-mongo:false}")
+@ConditionalOnExpression("'no-sql'.equals(${sbuf.config.tracing.on-database:})")
 public class NoSqlTracedRequestServiceImpl extends NoSqlAbstractService<NoSqlTracedRequest, NoSqlTracedRequestRepository> implements TracedRequestService {
 
     @Override

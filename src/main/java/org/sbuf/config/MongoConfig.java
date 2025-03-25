@@ -10,6 +10,6 @@ import org.springframework.stereotype.Component;
 @Configuration
 @EnableMongoAuditing
 @EnableMongoRepositories
-@ConditionalOnExpression("${sbuf.config.tracing.on-mongo:false}")
+@ConditionalOnExpression("${sbuf.config.mongo.enabled:false}")
 public class MongoConfig {
 }

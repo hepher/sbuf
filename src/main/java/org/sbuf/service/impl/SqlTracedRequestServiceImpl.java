@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnExpression("${sbuf.config.tracing.on-sql:false}")
+@ConditionalOnExpression("'sql'.equals(${sbuf.config.tracing.on-database:})")
 public class SqlTracedRequestServiceImpl extends SqlAbstractService<SqlTracedRequest, Integer, SqlTracedRequestRepository> implements TracedRequestService {
 
     @Override

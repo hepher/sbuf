@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Aspect
 @Component
-@ConditionalOnExpression("${sbuf.aspect.logging.repository:true}")
+@ConditionalOnExpression("${sbuf.aspect.repository.enabled:true}")
 public class RepositoryLoggingAspect extends AbstractLoggingAspect {
 
     @Pointcut("within(org.springframework.data.mongodb.repository.MongoRepository+)")
