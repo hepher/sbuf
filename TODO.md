@@ -1,0 +1,2 @@
+- Cache configuration for cluster and master/replica
+- Parallel execution 
