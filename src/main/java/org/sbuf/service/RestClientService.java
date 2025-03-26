@@ -605,24 +605,4 @@ public class RestClientService {
     public String toString() {
         return String.format("url='%s', method='%s'", url, method);
     }
-
-    public static void main(String[] args) {
-
-        Map<String, Object> map = new HashMap<>();
-        map.put("string", "hello");
-        map.put("number", 1234);
-
-        RestClientService.instance()
-                .url("https://myurl.com/user/")
-                .method(HttpMethod.POST)
-                .basicAuth("client-id", "client-secret")
-                .resultClass(MyKlass.class)
-                .on5xxServerError((httStatusHandlerParam) -> new MyEmptyResponse())
-                .on4xxServerError((httStatusHandlerParam) -> new MyEmptyResponse())
-                .exchange();
-    }
-
-    public class MyKlass {
-
-    }
 }
