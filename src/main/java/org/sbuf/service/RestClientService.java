@@ -39,6 +39,7 @@ import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
 @Slf4j
 public class RestClientService {
@@ -67,6 +68,8 @@ public class RestClientService {
 
     // request error handler
     private Map<HttpStatus, HttpStatusErrorHandler> httpStatusErrorConsumers;
+    private HttpStatusErrorHandler serverErrorHandler;
+    private HttpStatusErrorHandler clientErrorHandler;
     private BiFunction<SbufException, String, SbufException> exceptionErrorResponseParser;
 
     // request config
@@ -83,7 +86,7 @@ public class RestClientService {
         return new RestClientService();
     }
 
-    public static HttpStatusErrorHandler instanceHttpStatusConsumer(BiFunction<RestClientService, String, ?> errorResponseFunction) {
+    public static HttpStatusErrorHandler instanceHttpStatusConsumer(Function<HttStatusHandlerParam, ?> errorResponseFunction) {
         return new HttpStatusErrorHandler(errorResponseFunction);
     }
 
@@ -189,7 +192,7 @@ public class RestClientService {
         return this;
     }
 
-    public RestClientService httpStatusErrorHandler(HttpStatus httpStatus, BiFunction<RestClientService, String, ?> httpStatusErrorFunction) {
+    public RestClientService onHttpStatusError(HttpStatus httpStatus, Function<HttStatusHandlerParam, ?> httpStatusErrorFunction) {
         if (httpStatus == null || httpStatusErrorFunction == null) {
             return this;
         }
@@ -199,6 +202,24 @@ public class RestClientService {
         }
 
         httpStatusErrorConsumers.put(httpStatus, new HttpStatusErrorHandler(httpStatusErrorFunction));
+        return this;
+    }
+
+    public RestClientService on5xxServerError(Function<HttStatusHandlerParam, ?> httpServerErrorFunction) {
+        if (httpServerErrorFunction == null) {
+            return this;
+        }
+
+        serverErrorHandler = new HttpStatusErrorHandler(httpServerErrorFunction);
+        return this;
+    }
+
+    public RestClientService on4xxServerError(Function<HttStatusHandlerParam, ?> httpClientErrorFunction) {
+        if (httpClientErrorFunction == null) {
+            return this;
+        }
+
+        clientErrorHandler = new HttpStatusErrorHandler(httpClientErrorFunction);
         return this;
     }
 
@@ -350,22 +371,51 @@ public class RestClientService {
                     result.getBytes().length > MAX_BODY_SIZE ? ApplicationContextUtils.replaceContextLineSeparator(new String(result.getBytes(), 0, MAX_BODY_SIZE).concat(OMISSIS)) : ApplicationContextUtils.replaceContextLineSeparator(result));
 
             if (response.getStatusCode().isError()) {
-                HttpStatusErrorHandler httpStatusErrorHandler;
-				if (httpStatusErrorConsumers != null
-						&& (httpStatusErrorHandler = httpStatusErrorConsumers.get(HttpStatus.valueOf(response.getStatusCode().value()))) != null
-						&& Boolean.FALSE.equals(httpStatusErrorHandler.retryDone)) {
+                HttpStatusErrorHandler httpStatusErrorHandler = null;
 
-                    var handlerResult = httpStatusErrorHandler.getErrorHandlerFunction().apply(this, result);
+                Function<HttpStatusErrorHandler, T> evalHttpStatusErrorFunction = (httpStatus) -> {
+                    var handlerResult = httpStatus.getErrorHandlerFunction().apply(new HttStatusHandlerParam(this, result, httpStatus.retryDone));
+
+                    if (handlerResult == null) {
+                        return null;
+                    }
 
                     if (handlerResult instanceof Boolean) {
-                        if (Boolean.TRUE.equals(handlerResult)) {
-                            httpStatusErrorHandler.retryDone = true;
+                        if (Boolean.TRUE.equals(handlerResult) && Boolean.FALSE.equals(httpStatus.retryDone)) {
+                            httpStatus.retryDone = true;
                             return exchange();
                         }
                     } else {
                         return (T) handlerResult;
                     }
-				}
+
+                    return null;
+                };
+
+                if (httpStatusErrorConsumers != null && (httpStatusErrorHandler = httpStatusErrorConsumers.get(HttpStatus.valueOf(response.getStatusCode().value()))) != null) {
+                    var handlerResult = evalHttpStatusErrorFunction.apply(httpStatusErrorHandler);
+                    if (handlerResult != null) {
+                        return handlerResult;
+                    }
+                }
+
+                if (clientErrorHandler != null
+                        &&response.getStatusCode().is4xxClientError()
+                        && httpStatusErrorHandler == null) {
+                    var handlerResult = evalHttpStatusErrorFunction.apply(clientErrorHandler);
+                    if (handlerResult != null) {
+                        return handlerResult;
+                    }
+                }
+
+                if (serverErrorHandler != null
+                        && response.getStatusCode().is5xxServerError()
+                        && httpStatusErrorHandler == null) {
+                    var handlerResult = evalHttpStatusErrorFunction.apply(serverErrorHandler);
+                    if (handlerResult != null) {
+                        return handlerResult;
+                    }
+                }
 
                 SbufException commonsException = new SbufException();
                 commonsException.setHttpStatus(HttpStatus.valueOf(response.getStatusCode().value()));
@@ -396,12 +446,14 @@ public class RestClientService {
         });
     }
 
+    public record HttStatusHandlerParam(RestClientService restClientService, String errorResponse, Boolean retryDone) {}
+
     @Getter
     public static class HttpStatusErrorHandler {
         private Boolean retryDone;
-        private final BiFunction<RestClientService, String, ?> errorHandlerFunction;
+        private final Function<HttStatusHandlerParam, ?> errorHandlerFunction;
 
-        public HttpStatusErrorHandler(BiFunction<RestClientService, String, ?> errorHandlerFunction) {
+        public HttpStatusErrorHandler(Function<HttStatusHandlerParam, ?> errorHandlerFunction) {
             this.errorHandlerFunction = errorHandlerFunction;
             retryDone = false;
         }
@@ -552,5 +604,25 @@ public class RestClientService {
     @Override
     public String toString() {
         return String.format("url='%s', method='%s'", url, method);
+    }
+
+    public static void main(String[] args) {
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("string", "hello");
+        map.put("number", 1234);
+
+        RestClientService.instance()
+                .url("https://myurl.com/user/")
+                .method(HttpMethod.POST)
+                .basicAuth("client-id", "client-secret")
+                .resultClass(MyKlass.class)
+                .on5xxServerError((httStatusHandlerParam) -> new MyEmptyResponse())
+                .on4xxServerError((httStatusHandlerParam) -> new MyEmptyResponse())
+                .exchange();
+    }
+
+    public class MyKlass {
+
     }
 }
