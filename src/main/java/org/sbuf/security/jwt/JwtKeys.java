@@ -30,6 +30,16 @@ public interface JwtKeys {
         String RSA_PUBLIC_KEY_MODULUS = "n";
         String RSA_PUBLIC_KEY_EXPONENT = "e";
         String X509_CERT_CHAIN = "x5c";
-        String X509_CERT_TUMBLING= "x5t";
+        String X509_CERT_TUMBLING = "x5t";
+        String X509_CERT_SHA1_THUMBPRINT = "x5t#S256";
+        String X509_CERT_SHA256_THUMBPRINT = "x5t#S384";
+        String X509_CERT_SHA512_THUMBPRINT = "x5t#S512";
+        String X509_CERT_CHAIN_SHA1_THUMBPRINTS = "x5c#S256";
+        String X509_CERT_CHAIN_SHA256_THUMBPRINTS = "x5c#S384";
+        String X509_CERT_CHAIN_SHA512_THUMBPRINTS = "x5c#S512";
+        String ECPRIVATE_KEY_CURVE = "crv";
+        String ECPRIVATE_KEY_X = "x";
+        String ECPRIVATE_KEY_Y = "y";
+        
     }
 }
