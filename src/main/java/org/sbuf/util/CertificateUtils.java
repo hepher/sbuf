@@ -7,6 +7,7 @@ import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Base64;
 import java.util.Date;
 
 public class CertificateUtils {
@@ -28,12 +29,18 @@ public class CertificateUtils {
         return certGen.generate(privateKey);
     }
 
-    public static String getThumbprint(X509Certificate cert) throws NoSuchAlgorithmException, CertificateEncodingException {
+    public static String getSha1Thumbprint(X509Certificate cert) throws NoSuchAlgorithmException, CertificateEncodingException {
         MessageDigest md = MessageDigest.getInstance("SHA-1");
         byte[] der = cert.getEncoded();
         md.update(der);
         byte[] digest = md.digest();
         String digestHex = DatatypeConverter.printHexBinary(digest);
         return digestHex.toLowerCase();
+    }
+
+    public static String getSha256Thumbprint(X509Certificate cert) throws NoSuchAlgorithmException, CertificateEncodingException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] digest = md.digest(cert.getEncoded());
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
     }
 }
