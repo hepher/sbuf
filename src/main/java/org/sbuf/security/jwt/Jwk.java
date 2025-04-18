@@ -45,14 +45,14 @@ public class Jwk extends AbstractEntity {
     @JsonProperty(JwtKeys.Parameter.RSA_PUBLIC_KEY_EXPONENT)
     private String exponent;
 
-    @JsonProperty(JwtKeys.Parameter.X509_CERT_TUMBLING)
-    private String x509CertTumbling;
+    @JsonProperty(JwtKeys.Parameter.X509_CERT_SHA1_THUMBPRINT)
+    private String x509CertTumblingSha1;
 
     @JsonProperty(JwtKeys.Parameter.X509_CERT_CHAIN)
     private List<String> x509CertList;
 
-    @JsonProperty(JwtKeys.Parameter.X509_CERT_SHA1_THUMBPRINT)
-    private String x509CertTumblingSha1;
+    @JsonProperty(JwtKeys.Parameter.X509_CERT_SHA256_THUMBPRINT)
+    private String x509CertTumblingSha256;
 
     @JsonIgnore
     private Function<BigInteger, byte[]> unsignBigIntFunction = bigInt -> {
@@ -93,7 +93,7 @@ public class Jwk extends AbstractEntity {
         modulus = Base64.getUrlEncoder().withoutPadding().encodeToString(unsignBigIntFunction.apply(((RSAPublicKey) x509Cert.getPublicKey()).getModulus()));
         exponent = Base64.getUrlEncoder().withoutPadding().encodeToString(unsignBigIntFunction.apply(((RSAPublicKey) x509Cert.getPublicKey()).getPublicExponent()));
         keyId = x509Cert.getSerialNumber().toString();
-        x509CertTumblingSha1 = CertificateUtils.getThumbprint(x509Cert);
+        x509CertTumblingSha1 = CertificateUtils.getSha256Thumbprint(x509Cert);
         x509CertList = Collections.singletonList(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
     }
 
@@ -103,3 +103,4 @@ public class Jwk extends AbstractEntity {
         modulus = Base64.getUrlEncoder().withoutPadding().encodeToString(unsignBigIntFunction.apply(rsaPublicKey.getModulus()));
         exponent = Base64.getUrlEncoder().withoutPadding().encodeToString(unsignBigIntFunction.apply(rsaPublicKey.getPublicExponent()));
     }
+}
