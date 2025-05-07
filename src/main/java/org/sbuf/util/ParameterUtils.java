@@ -4,7 +4,7 @@ import java.util.List;
 public class ParameterUtils {
 
     public static List<String> getSensitiveDataFields() {
-        var sensitiveDataFields = ApplicationContextUtils.evalExpression("${commons.model.entity.to-string-exclude-fields:}");
+        var sensitiveDataFields = ApplicationContextUtils.evalExpression("${bfw.model.entity.sensitive-data-fields:}");
         if (sensitiveDataFields instanceof String) {
             return Arrays.asList(((String) sensitiveDataFields).split(","));
         }
