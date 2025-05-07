@@ -139,8 +139,20 @@ public class JoinPointDetail {
 	}
 
 	public List<String> getParameterListAsString() {
+		List<String> sensitiveDataFields = ParameterUtils.getSensitiveDataFields();
+
 		return parameterMap.entrySet().stream()
-				.map(entry -> NumberUtils.isDigits(entry.getKey()) ? entry.getValue().toString() : StringUtils.join(entry.getKey(), "=", String.valueOf(entry.getValue().value)))
+				.map(entry -> {
+					if (NumberUtils.isDigits(entry.getKey())) {
+						return entry.getValue().toString();
+					}
+
+					if (sensitiveDataFields != null && sensitiveDataFields.contains(entry.getKey())) {
+						return StringUtils.join(entry.getKey(), "=", "*****");
+					}
+
+					return StringUtils.join(entry.getKey(), "=", String.valueOf(entry.getValue().value));
+				})
 				.toList();
 	}
 }
