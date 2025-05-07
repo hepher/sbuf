@@ -20,5 +20,40 @@ public abstract class AbstractEntity implements Serializable {
     public final boolean equals(final Object obj) {  return EqualsBuilder.reflectionEquals(this, obj); }
 
     @Override
-    public String toString() {  return ToStringBuilder.reflectionToString(this, ToStringStyle.SHORT_PREFIX_STYLE); }
+    public String toString() {
+        ToStringStyle toStringStyle = ToStringStyle.SHORT_PREFIX_STYLE;
+
+        List<String> sensitiveDataFields = ParameterUtils.getSensitiveDataFields();
+        if (sensitiveDataFields != null && !sensitiveDataFields.isEmpty()) {
+            toStringStyle = new SentivieDataToStringStyle(sensitiveDataFields);
+        }
+
+        ReflectionToStringBuilder toStringBuilder = new ReflectionToStringBuilder(this, toStringStyle, null, null, false, false);
+
+        return toStringBuilder.toString();
+    }
+
+    private static class SentivieDataToStringStyle extends ToStringStyle {
+        private final List<String> excludeFieldNames;
+
+        public SentivieDataToStringStyle(List<String> excludeFieldNames) {
+            this.excludeFieldNames = excludeFieldNames;
+
+            this.setUseShortClassName(true);
+            this.setUseIdentityHashCode(false);
+        }
+
+        @Override
+        protected void appendDetail(StringBuffer buffer, String fieldName, Object value) {
+            if (excludeFieldNames != null && excludeFieldNames.contains(fieldName)) {
+                buffer.append("*****");
+            } else {
+                super.appendDetail(buffer, fieldName, value);
+            }
+        }
+
+        private Object readResolve() {
+            return this;
+        }
+    }
 }
