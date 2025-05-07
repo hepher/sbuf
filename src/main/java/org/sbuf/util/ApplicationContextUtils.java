@@ -12,6 +12,9 @@ import org.springframework.util.ResourceUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class ApplicationContextUtils {
@@ -72,6 +75,29 @@ public class ApplicationContextUtils {
         }
 
         return input.replace("\n", LabelUtils.AWS_CLOUD_WATCH_LINE_SEPARATOR);
+    }
+
+    public static String hideSensitiveData(String input) {
+        if (input == null) {
+            return null;
+        }
+
+        String result = input;
+        String sensitiveDataRegex = "\"<field_to_hide>\"[ \\n\\r\\t]*[:=]{1}[ \\n\\r\\t]*(\"[a-zA-Z0-9_$@!%*#?&.-]+\")";
+
+        List<String> sensitiveDataFields = ParameterUtils.getSensitiveDataFields();
+        if (sensitiveDataFields != null && !sensitiveDataFields.isEmpty()) {
+
+            for (String excludeField : sensitiveDataFields) {
+                Pattern pattern = Pattern.compile(sensitiveDataRegex.replace("<field_to_hide>", excludeField));
+                Matcher matcher = pattern.matcher(result);
+                if (matcher.find()) {
+                    result = result.replace(matcher.group(1), "*****");
+                }
+            }
+        }
+
+        return result;
     }
 
     public static String getReleaseVersion() {
