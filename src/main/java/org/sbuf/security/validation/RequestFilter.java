@@ -40,7 +40,7 @@ public class RequestFilter extends OncePerRequestFilter {
 
     @Override
     @SneakyThrows
-    protected void doFilterInternal(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, FilterChain filterChain) {
+    protected void doFilterInternal(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, FilterChain filterChain) throws ServletException, IOException {
 
         CachedBodyHttpServletRequest cachedBodyHttpServletRequest = new CachedBodyHttpServletRequest(httpServletRequest);
         ContentCachingResponseWrapper responseCacheWrapperObject = new ContentCachingResponseWrapper(httpServletResponse);
@@ -72,7 +72,7 @@ public class RequestFilter extends OncePerRequestFilter {
                 requestUrl,
                 cachedBodyHttpServletRequest.getMethod(),
                 requestHeaderMap,
-                !requestBodyAsString.isBlank() ? ApplicationContextUtils.replaceContextLineSeparator(requestBodyAsString) : "");
+                !requestBodyAsString.isBlank() ? ApplicationContextUtils.replaceContextLineSeparator(ApplicationContextUtils.hideSensitiveData(requestBodyAsString)) : "");
 
         StopWatch stopWatch = new StopWatch();
         stopWatch.start("Request Filter - doFilter method");
@@ -96,9 +96,9 @@ public class RequestFilter extends OncePerRequestFilter {
                 cachedBodyHttpServletRequest.getMethod(),
                 requestHeaderMap,
                 stopWatch.getTotalTimeMillis() + "ms",
-                !requestBodyAsString.isBlank() ? ApplicationContextUtils.replaceContextLineSeparator(requestBodyAsString) : "",
+                !requestBodyAsString.isBlank() ? ApplicationContextUtils.replaceContextLineSeparator(ApplicationContextUtils.hideSensitiveData(requestBodyAsString)) : "",
                 httpServletResponse.getStatus(),
                 responseHeaderMap,
-                !responseBodyAsString.isBlank() ? ApplicationContextUtils.replaceContextLineSeparator(responseBodyAsString) : "");
+                !responseBodyAsString.isBlank() ? ApplicationContextUtils.replaceContextLineSeparator(ApplicationContextUtils.hideSensitiveData(responseBodyAsString)) : "");
     }
 }
