@@ -112,7 +112,9 @@ public class RestClientService {
         if (queryParameters == null) {
             queryParameters = new HashMap<>();
         }
-        this.queryParameters.putAll(queryParameterMap);
+        if (queryParameterMap != null) {
+            this.queryParameters.putAll(queryParameterMap);
+        }
         return this;
     }
 
