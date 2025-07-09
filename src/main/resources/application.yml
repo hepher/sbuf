@@ -61,3 +61,11 @@ spring:
         initial-interval: 1000
         max-attempts: 20
         multiplier: 2
+
+grpc:
+  client:
+    message-service:
+      address: static://localhost:9093
+      negotiation-type: plaintext
+  server:
+    port: 9093
