@@ -118,6 +118,18 @@ public class RestClientService {
         return this;
     }
 
+    public RestClientService queryParameters(MultiValueMap<String, Object> queryParameterMap) {
+        if (queryParameters == null) {
+            queryParameters = new HashMap<>();
+        }
+
+        if (queryParameterMap != null) {
+            this.queryParameters.putAll(queryParameterMap);
+        }
+
+        return this;
+    }
+
     public RestClientService pathParameter(String key, String value) {
         if (pathParameters == null) {
             pathParameters = new ParameterMap<>();
