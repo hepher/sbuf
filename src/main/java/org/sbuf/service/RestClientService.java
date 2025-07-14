@@ -1,6 +1,8 @@
 package org.sbuf.service;
 
 
+import com.enel.notification.commons.util.ApplicationContextUtils;
+import com.enel.notification.commons.util.LabelUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -16,9 +18,6 @@ import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.ssl.TrustAllStrategy;
 import org.apache.hc.core5.ssl.SSLContexts;
-import org.sbuf.exception.SbufException;
-import org.sbuf.util.ApplicationContextUtils;
-import org.sbuf.util.LabelUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -38,6 +37,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -207,6 +207,10 @@ public class RestClientService {
     }
 
     public RestClientService onHttpStatusError(HttpStatus httpStatus, Function<HttStatusHandlerParam, ?> httpStatusErrorFunction) {
+        return onHttpStatusError(httpStatus, 1, AttemptStrategyEnum.IMMEDIATE, httpStatusErrorFunction);
+    }
+
+    public RestClientService onHttpStatusError(HttpStatus httpStatus, int attempts, AttemptStrategyEnum attemptStrategy, Function<HttStatusHandlerParam, ?> httpStatusErrorFunction) {
         if (httpStatus == null || httpStatusErrorFunction == null) {
             return this;
         }
@@ -215,25 +219,33 @@ public class RestClientService {
             httpStatusErrorConsumers = new EnumMap<>(HttpStatus.class);
         }
 
-        httpStatusErrorConsumers.put(httpStatus, new HttpStatusErrorHandler(httpStatusErrorFunction));
+        httpStatusErrorConsumers.put(httpStatus, new HttpStatusErrorHandler(attempts, attemptStrategy, httpStatusErrorFunction));
         return this;
     }
 
     public RestClientService on5xxServerError(Function<HttStatusHandlerParam, ?> httpServerErrorFunction) {
+        return on5xxServerError(1, AttemptStrategyEnum.IMMEDIATE, httpServerErrorFunction);
+    }
+
+    public RestClientService on5xxServerError(int attempts, AttemptStrategyEnum attemptStrategy, Function<HttStatusHandlerParam, ?> httpServerErrorFunction) {
         if (httpServerErrorFunction == null) {
             return this;
         }
 
-        serverErrorHandler = new HttpStatusErrorHandler(httpServerErrorFunction);
+        serverErrorHandler = new HttpStatusErrorHandler(attempts, attemptStrategy, httpServerErrorFunction);
         return this;
     }
 
     public RestClientService on4xxServerError(Function<HttStatusHandlerParam, ?> httpClientErrorFunction) {
+        return on4xxServerError(1, AttemptStrategyEnum.IMMEDIATE, httpClientErrorFunction);
+    }
+
+    public RestClientService on4xxServerError(int attempts, AttemptStrategyEnum attemptStrategy, Function<HttStatusHandlerParam, ?> httpClientErrorFunction) {
         if (httpClientErrorFunction == null) {
             return this;
         }
 
-        clientErrorHandler = new HttpStatusErrorHandler(httpClientErrorFunction);
+        clientErrorHandler = new HttpStatusErrorHandler(attempts, attemptStrategy, httpClientErrorFunction);
         return this;
     }
 
@@ -298,6 +310,9 @@ public class RestClientService {
         Map<String, Object> uriParameterMap = new HashMap<>();
         // resolve url parameters
         if (queryParameters != null && !queryParameters.isEmpty()) {
+            
+            BiConsumer<String, String> uriParameterSetter = (key, value) -> builder.append(key).append("=").append("{").append(value).append("}");
+            
             builder.append("?");
             int keySetIndex = 0;
             for (String key : queryParameters.keySet()) {
@@ -309,7 +324,8 @@ public class RestClientService {
                             uriParameterMap.put(key + i, array[i]);
 
                             // append query list parameter
-                            builder.append(key).append("=").append("{").append(key).append(i).append("}");
+                            uriParameterSetter.accept(key, key + i);
+//                            builder.append(key).append("=").append("{").append(key).append(i).append("}");
                             if (i < array.length-1) {
                                 builder.append("&");
                             }
@@ -322,22 +338,25 @@ public class RestClientService {
                             uriParameterMap.put(key + i, value);
 
                             // append query list parameter
-                            builder.append(key).append("=").append("{").append(key).append(i).append("}");
+                            uriParameterSetter.accept(key, key + i);
+//                            builder.append(key).append("=").append("{").append(key).append(i).append("}");
                             if (i < list.size()-1) {
                                 builder.append("&");
                             }
                             i++;
                         }
                     } else {
-                        builder.append(key).append("=").append("{").append(key).append("}");
+                        uriParameterSetter.accept(key, key);
+//                        builder.append(key).append("=").append("{").append(key).append("}");
                         uriParameterMap.put(key, queryParameters.get(key));
                     }
                 } else {
-                    builder.append(key).append("=").append("{").append(key).append("}");
+                    uriParameterSetter.accept(key, key);
+//                    builder.append(key).append("=").append("{").append(key).append("}");
                     uriParameterMap.put(key, queryParameters.get(key));
                 }
 
-                if (keySetIndex < queryParameters.keySet().size()-1) {
+                if (keySetIndex < queryParameters.size() - 1) {
                     builder.append("&");
                 }
                 keySetIndex++;
@@ -388,15 +407,25 @@ public class RestClientService {
                 HttpStatusErrorHandler httpStatusErrorHandler = null;
 
                 Function<HttpStatusErrorHandler, T> evalHttpStatusErrorFunction = (httpStatus) -> {
-                    var handlerResult = httpStatus.getErrorHandlerFunction().apply(new HttStatusHandlerParam(this, result, httpStatus.retryDone));
+                    var handlerResult = httpStatus.getErrorHandlerFunction().apply(new HttStatusHandlerParam(this, result, httpStatus.attemptsDone));
 
                     if (handlerResult == null) {
                         return null;
                     }
 
                     if (handlerResult instanceof Boolean) {
-                        if (Boolean.TRUE.equals(handlerResult) && Boolean.FALSE.equals(httpStatus.retryDone)) {
-                            httpStatus.retryDone = true;
+                        if (Boolean.TRUE.equals(handlerResult) && httpStatus.attemptsDone > 0) {
+                            httpStatus.attemptsDone = httpStatus.attemptsDone - 1;
+                            int nextAttemptDelay = httpStatus.attemptStrategy.getDelay(httpStatus.getCurrentAttempt());
+
+                            if (nextAttemptDelay > 0) {
+                                try {
+                                    Thread.sleep(nextAttemptDelay);
+                                } catch (InterruptedException e) {
+                                    // throw new SbufException(e.getMessage());
+                                }
+                            }
+
                             return exchange();
                         }
                     } else {
@@ -460,16 +489,24 @@ public class RestClientService {
         });
     }
 
-    public record HttStatusHandlerParam(RestClientService restClientService, String errorResponse, Boolean retryDone) {}
+    public record HttStatusHandlerParam(RestClientService restClientService, String errorResponse, int retryingDone) {}
 
     @Getter
     public static class HttpStatusErrorHandler {
-        private Boolean retryDone;
+        private int attemptsDone;
+        private final int attempts;
         private final Function<HttStatusHandlerParam, ?> errorHandlerFunction;
+        private final AttemptStrategyEnum attemptStrategy;
 
-        public HttpStatusErrorHandler(Function<HttStatusHandlerParam, ?> errorHandlerFunction) {
+        public HttpStatusErrorHandler(int attempts, AttemptStrategyEnum attemptStrategy, Function<HttStatusHandlerParam, ?> errorHandlerFunction) {
+            this.attemptsDone = attempts;
+            this.attempts = attempts;
+            this.attemptStrategy = attemptStrategy;
             this.errorHandlerFunction = errorHandlerFunction;
-            retryDone = false;
+        }
+
+        public int getCurrentAttempt() {
+            return attempts - attemptsDone;
         }
     }
 
@@ -613,6 +650,37 @@ public class RestClientService {
                         .build();
             }
         }
+    }
+
+    public enum AttemptStrategyEnum {
+        IMMEDIATE {
+            @Override
+            public int computeDelay(int attempt) {
+                return 0;
+            }
+        },
+        PROGRESSIVE {
+            @Override
+            public int computeDelay(int attempt) {
+                return attempt*2;
+            }
+        },
+        EXPONENTIAL {
+            @Override
+            public int computeDelay(int attempt) {
+                return (int) Math.pow(2, attempt);
+            }
+        };
+
+        public int getDelay(int attempt) {
+            if (attempt <= 0) {
+                return 0;
+            }
+
+            return computeDelay(attempt) * 1000;
+        }
+
+        protected abstract int computeDelay(int attempt);
     }
 
     @Override
