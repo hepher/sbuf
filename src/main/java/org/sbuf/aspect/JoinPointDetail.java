@@ -94,7 +94,7 @@ public class JoinPointDetail {
 				.toList();
 
 		if (!filteredStack.isEmpty()) {
-			StackTraceElement traceElement = filteredStack.get(0);
+			StackTraceElement traceElement = filteredStack.getFirst();
 			parentKlass = extractClassFromPackageFunction.apply(traceElement.getClassName());
 			parentPackageKlass = extractPackageFunction.apply(traceElement.getClassName());
 			parentMethod = traceElement.getMethodName();
