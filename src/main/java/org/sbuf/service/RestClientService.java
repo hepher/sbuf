@@ -87,7 +87,7 @@ public class RestClientService {
     }
 
     public static HttpStatusErrorHandler instanceHttpStatusConsumer(Function<HttStatusHandlerParam, ?> errorResponseFunction) {
-        return new HttpStatusErrorHandler(errorResponseFunction);
+        return new HttpStatusErrorHandler(1, AttemptStrategyEnum.IMMEDIATE, errorResponseFunction);
     }
 
     public RestClientService url(String url) {
