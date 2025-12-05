@@ -1,8 +1,8 @@
-package com.enel.notification.commons.interceptor;
+package com.enelx.bfw.framework.interceptor;
 
-import com.enel.notification.commons.main.AbstractGrpcInterceptor;
-import com.enel.notification.commons.util.ApplicationContextUtils;
-import com.enel.notification.commons.util.LabelUtils;
+import com.enelx.bfw.framework.main.AbstractGrpcInterceptor;
+import com.enelx.bfw.framework.util.ApplicationContextUtils;
+import com.enelx.bfw.framework.util.LabelUtils;
 import com.google.protobuf.MessageOrBuilder;
 import io.grpc.*;
 import lombok.extern.slf4j.Slf4j;
@@ -62,7 +62,7 @@ public class GrpcClientInterceptor extends AbstractGrpcInterceptor implements Cl
                                 loggingRequest.getResponseHeaders(),
                                 formatMessageToJson((MessageOrBuilder) loggingRequest.getResponse())
                         );
-                        log.info("✅ Call completed: {}, status={}, trailers={}", loggingRequest.getMethod(), status, trailers);
+                        
                         super.onClose(status, trailers);
                     }
                 }, headers);
