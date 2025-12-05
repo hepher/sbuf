@@ -1,8 +1,8 @@
-package com.enel.notification.commons.interceptor;
+package com.enelx.bfw.framework.interceptor;
 
-import com.enel.notification.commons.main.AbstractGrpcInterceptor;
-import com.enel.notification.commons.util.ApplicationContextUtils;
-import com.enel.notification.commons.util.LabelUtils;
+import com.enelx.bfw.framework.main.AbstractGrpcInterceptor;
+import com.enelx.bfw.framework.util.ApplicationContextUtils;
+import com.enelx.bfw.framework.util.LabelUtils;
 import com.google.protobuf.MessageOrBuilder;
 import io.grpc.*;
 import lombok.extern.slf4j.Slf4j;
@@ -56,17 +56,11 @@ public class GrpcServerInterceptor extends AbstractGrpcInterceptor implements Se
         };
 
         stopWatch.start();
-        return new ForwardingServerCallListener.SimpleForwardingServerCallListener<>(
-                next.startCall(serverCall, headers)) {
+        return new ForwardingServerCallListener.SimpleForwardingServerCallListener<>(next.startCall(serverCall, headers)) {
 
             @Override
             public void onMessage(ReqT message) {
                 loggingRequest.setRequest(message);
-                super.onMessage(message);
-            }
-
-            @Override
-            public void onComplete() {
                 log.info(LabelUtils.LOG_GRPC_REQUEST,
                         loggingRequest.getChannel(),
                         loggingRequest.getServiceName(),
@@ -74,6 +68,33 @@ public class GrpcServerInterceptor extends AbstractGrpcInterceptor implements Se
                         loggingRequest.getRequestHeaders(),
                         formatMessageToJson((MessageOrBuilder) loggingRequest.getRequest())
                 );
+                super.onMessage(message);
+            }
+
+            @Override
+            public void onHalfClose() {
+                try {
+                    super.onHalfClose();
+                } catch (Exception e) {
+                    stopWatch.stop();
+                    log.info(LabelUtils.LOG_GRPC_RESPONSE,
+                            loggingRequest.getChannel(),
+                            loggingRequest.getServiceName(),
+                            loggingRequest.getMethod(),
+                            loggingRequest.getRequestHeaders(),
+                            formatMessageToJson((MessageOrBuilder) loggingRequest.getRequest()),
+                            stopWatch.getTotalTimeMillis() + "ms",
+                            Status.INTERNAL,
+                            null,
+                            e.getMessage()
+                    );
+                    call.close(
+                            Status.INTERNAL
+                                    .withDescription(e.getMessage())
+                                    .withCause(e),
+                            loggingRequest.getRequestHeaders()
+                    );
+                }
             }
         };
     }
