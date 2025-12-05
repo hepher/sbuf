@@ -20,6 +20,18 @@ public class OpenApiConfig {
     @Value("${application.description}")
     private String projectDescription;
 
+    @Value("${server.port:8080}")
+    private int serverPort;
+
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void logSwaggerUrl() {
+        String swaggerUrl = basePath + serverPort + contextPath + "/swagger-ui.html"; // o /swagger-ui/index.html per Springdoc
+        log.info("Swagger UI at url: {}", swaggerUrl);
+    }
+    
     @Bean
     public OpenAPI customOpenAPI() {
         OpenAPI openAPI = new OpenAPI();
